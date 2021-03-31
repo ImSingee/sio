@@ -23,6 +23,10 @@ func NewReader(rd io.Reader) *Reader {
 func NewReaderSize(rd io.Reader, size int) *Reader {
 	b, ok := rd.(*Reader)
 
+	if size <= 64 {
+		size = 64
+	}
+
 	if ok && b.breader.Size() >= size {
 		return b
 	}
@@ -40,6 +44,26 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 // 注意：n 的数量不能大于 buffer size
 func (r *Reader) Peek(n int) ([]byte, error) {
 	return r.breader.Peek(n)
+}
+
+// 尽可能多的跳过 n 个字节
+func (r *Reader) Skip(n int) (int, error) {
+	discard, err := r.breader.Discard(n)
+
+	if err == nil { // 跳过足够
+		return discard, err
+	}
+
+	if err == io.EOF && discard != n { // 未跳过足够
+		return discard, nil
+	}
+
+	// 其他异常
+	return discard, err
+}
+
+func (r *Reader) MustSkip(n int) (int, error) {
+	return r.breader.Discard(n)
 }
 
 func (r *Reader) ReadByte() (byte, error) {
@@ -78,6 +102,8 @@ func (r *Reader) ReadEnoughBytes(n int) ([]byte, error) {
 			return bytes, fmt.Errorf("no enough bytes can be read")
 		}
 
+		_, _ = r.breader.Discard(n)
+
 		return bytes, nil
 	}
 
@@ -99,11 +125,11 @@ func (r *Reader) ReadBytesAsString(n int) (string, error) {
 	return *((*string)(unsafe.Pointer(&bytes))), nil
 }
 
-func (r *Reader) ReadByteAsUInt8() (uint8, error) {
+func (r *Reader) ReadUInt8() (uint8, error) {
 	return r.ReadByte()
 }
 
-func (r *Reader) ReadBytesAsUInt16() (uint16, error) {
+func (r *Reader) ReadUInt16() (uint16, error) {
 	bytes, err := r.ReadEnoughBytes(2)
 
 	if err != nil {
@@ -113,7 +139,7 @@ func (r *Reader) ReadBytesAsUInt16() (uint16, error) {
 	return binary.BigEndian.Uint16(bytes), err
 }
 
-func (r *Reader) ReadBytesAsUInt32() (uint32, error) {
+func (r *Reader) ReadUInt32() (uint32, error) {
 	bytes, err := r.ReadEnoughBytes(4)
 
 	if err != nil {
@@ -123,7 +149,7 @@ func (r *Reader) ReadBytesAsUInt32() (uint32, error) {
 	return binary.BigEndian.Uint32(bytes), err
 }
 
-func (r *Reader) ReadBytesAsUInt64() (uint64, error) {
+func (r *Reader) ReadUInt64() (uint64, error) {
 	bytes, err := r.ReadEnoughBytes(8)
 
 	if err != nil {
