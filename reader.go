@@ -158,3 +158,11 @@ func (r *Reader) ReadUInt64() (uint64, error) {
 
 	return binary.BigEndian.Uint64(bytes), err
 }
+
+func (r *Reader) ReadVarUInt() (uint64, error) {
+	return binary.ReadUvarint(r)
+}
+
+func (r *Reader) ReadVarInt() (int64, error) {
+	return binary.ReadVarint(r)
+}
