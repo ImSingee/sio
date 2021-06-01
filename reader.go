@@ -12,6 +12,7 @@ var DefaultBufSize int = 4096
 
 type Reader struct {
 	breader *bufio.Reader
+	n       uint64
 }
 
 func NewReader(rd io.Reader) *Reader {
@@ -37,8 +38,20 @@ func NewReaderSize(rd io.Reader, size int) *Reader {
 	return r
 }
 
+// N 返回内部读计数器
+func (r *Reader) N() uint64 {
+	return r.n
+}
+
+// ResetN 将内部读计数器清零
+func (r *Reader) ResetN() {
+	r.n = 0
+}
+
 func (r *Reader) Read(p []byte) (n int, err error) {
-	return r.breader.Read(p)
+	n, err = r.breader.Read(p)
+	r.n += uint64(n)
+	return n, err
 }
 
 // 注意：n 的数量不能大于 buffer size
@@ -49,6 +62,7 @@ func (r *Reader) Peek(n int) ([]byte, error) {
 // 尽可能多的跳过 n 个字节
 func (r *Reader) Skip(n int) (int, error) {
 	discard, err := r.breader.Discard(n)
+	r.n += uint64(discard)
 
 	if err == nil { // 跳过足够
 		return discard, err
@@ -63,11 +77,18 @@ func (r *Reader) Skip(n int) (int, error) {
 }
 
 func (r *Reader) MustSkip(n int) (int, error) {
-	return r.breader.Discard(n)
+	discard, err := r.breader.Discard(n)
+	r.n += uint64(discard)
+	return discard, err
 }
 
 func (r *Reader) ReadByte() (byte, error) {
-	return r.breader.ReadByte()
+	b, err := r.breader.ReadByte()
+	if err == nil {
+		r.n += 1
+	}
+
+	return b, err
 }
 
 func (r *Reader) ReadBytes(n int) ([]byte, error) {
@@ -84,6 +105,7 @@ func (r *Reader) ReadBytes(n int) ([]byte, error) {
 	if err != nil {
 		return result[:read], err
 	}
+	r.n += uint64(read)
 
 	return result[:read], nil
 }
@@ -103,6 +125,7 @@ func (r *Reader) ReadEnoughBytes(n int) ([]byte, error) {
 		}
 
 		_, _ = r.breader.Discard(n)
+		r.n += uint64(n)
 
 		return bytes, nil
 	}
@@ -112,6 +135,7 @@ func (r *Reader) ReadEnoughBytes(n int) ([]byte, error) {
 	read, err := io.ReadFull(r, bytes)
 
 	// ReadFull 保证读不够会返回错误，因此可以不额外判断
+	r.n += uint64(read)
 	return bytes[:read], err
 }
 
@@ -160,9 +184,11 @@ func (r *Reader) ReadUInt64() (uint64, error) {
 }
 
 func (r *Reader) ReadVarUInt() (uint64, error) {
+	// 内部调用了 ReadByte
 	return binary.ReadUvarint(r)
 }
 
 func (r *Reader) ReadVarInt() (int64, error) {
+	// 内部调用了 ReadByte
 	return binary.ReadVarint(r)
 }
