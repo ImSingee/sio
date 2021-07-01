@@ -19,8 +19,7 @@ func NewReader(rd io.Reader) *Reader {
 	return NewReaderSize(rd, DefaultBufSize)
 }
 
-// 创建一个新的 Reader
-// 如果 buf 不存在
+// NewReaderSize 创建一个新的 Reader
 func NewReaderSize(rd io.Reader, size int) *Reader {
 	b, ok := rd.(*Reader)
 
@@ -54,32 +53,34 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-// 注意：n 的数量不能大于 buffer size
+func (r *Reader) ReadFull(p []byte) (n int, err error) {
+	return io.ReadFull(r, p)
+}
+
+// Peek 注意：n 的数量不能大于 buffer size
 func (r *Reader) Peek(n int) ([]byte, error) {
 	return r.breader.Peek(n)
 }
 
-// 尽可能多的跳过 n 个字节
+// Skip 尽可能多的跳过 n 个字节
 func (r *Reader) Skip(n int) (int, error) {
-	discard, err := r.breader.Discard(n)
-	r.n += uint64(discard)
+	p, err := r.ReadBytes(n)
 
 	if err == nil { // 跳过足够
-		return discard, err
+		return len(p), err
 	}
 
-	if err == io.EOF && discard != n { // 未跳过足够
-		return discard, nil
+	if err == io.EOF && len(p) != n { // 未跳过足够
+		return len(p), nil
 	}
 
 	// 其他异常
-	return discard, err
+	return len(p), err
 }
 
 func (r *Reader) MustSkip(n int) (int, error) {
-	discard, err := r.breader.Discard(n)
-	r.n += uint64(discard)
-	return discard, err
+	p, err := r.ReadBytes(n)
+	return len(p), err
 }
 
 func (r *Reader) ReadByte() (byte, error) {
@@ -101,16 +102,15 @@ func (r *Reader) ReadBytes(n int) ([]byte, error) {
 
 	result := make([]byte, n)
 
-	read, err := r.Read(result)
+	read, err := r.ReadFull(result)
 	if err != nil {
 		return result[:read], err
 	}
-	r.n += uint64(read)
 
 	return result[:read], nil
 }
 
-// 读取足够的字节，如果不够会报错
+// ReadEnoughBytes 读取足够的字节，如果不够会报错
 // 当 n <= buffer size 时，该函数保证如果读不够则回退
 // 否则，会停留在最后的读取地
 func (r *Reader) ReadEnoughBytes(n int) ([]byte, error) {
