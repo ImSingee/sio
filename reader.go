@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strings"
 	"unsafe"
 )
 
@@ -191,4 +192,31 @@ func (r *Reader) ReadVarUInt() (uint64, error) {
 func (r *Reader) ReadVarInt() (int64, error) {
 	// 内部调用了 ReadByte
 	return binary.ReadVarint(r)
+}
+
+// ReadLine read a string until \n or EOF
+// bool 参数返回是否因为 EOF 结尾
+// string 参数返回读到的字符串，该字符串不会以 \n 结尾
+func (r *Reader) ReadLine() (result string, eof bool, err error) {
+	input := strings.Builder{}
+
+	for {
+		b, err := r.ReadByte()
+		if err != nil {
+			if err == io.EOF {
+				eof = true
+				break
+			} else {
+				return "", false, err
+			}
+		}
+
+		if b == '\n' {
+			break
+		}
+
+		input.WriteByte(b)
+	}
+
+	return input.String(), eof, nil
 }

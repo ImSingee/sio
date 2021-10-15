@@ -2,8 +2,10 @@ package sio
 
 import (
 	"bytes"
-	"github.com/ImSingee/tt"
+	"strings"
 	"testing"
+
+	"github.com/ImSingee/tt"
 )
 
 func TestReadBytesAsUInt16(t *testing.T) {
@@ -17,4 +19,32 @@ func TestReadBytesAsUInt16(t *testing.T) {
 
 func TestWriteBytesAsUInt16(t *testing.T) {
 	// TODO
+}
+
+func TestReadLine(t *testing.T) {
+	r := NewReader(strings.NewReader("hello"))
+	result, eof, err := r.ReadLine()
+	tt.AssertIsNil(t, err)
+	tt.AssertEqual(t, "hello", result)
+	tt.AssertEqual(t, true, eof)
+
+	r = NewReader(strings.NewReader("hello\n"))
+	result, eof, err = r.ReadLine()
+	tt.AssertIsNil(t, err)
+	tt.AssertEqual(t, "hello", result)
+	tt.AssertEqual(t, false, eof)
+	result, eof, err = r.ReadLine()
+	tt.AssertIsNil(t, err)
+	tt.AssertEqual(t, "", result)
+	tt.AssertEqual(t, true, eof)
+
+	r = NewReader(strings.NewReader("hello\nworld"))
+	result, eof, err = r.ReadLine()
+	tt.AssertIsNil(t, err)
+	tt.AssertEqual(t, "hello", result)
+	tt.AssertEqual(t, false, eof)
+	result, eof, err = r.ReadLine()
+	tt.AssertIsNil(t, err)
+	tt.AssertEqual(t, "world", result)
+	tt.AssertEqual(t, true, eof)
 }
